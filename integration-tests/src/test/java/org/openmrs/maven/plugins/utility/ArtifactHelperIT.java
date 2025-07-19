@@ -15,6 +15,7 @@ import org.xml.sax.InputSource;
 import java.io.File;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,6 +30,11 @@ import java.util.zip.ZipEntry;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -98,23 +104,48 @@ public class ArtifactHelperIT extends AbstractMavenIT {
 
         private final Map<String, ModuleInfo> resolved = new HashMap<>();
 
+        private final Map<String, ModuleInfo> unResolved = new HashMap<>();
+
         public void resolve(String groupId, String artifactId, String version) throws Exception {
             resolveRecursive(groupId, artifactId, version);
+            
         }
 
         private void resolveRecursive(String groupId, String artifactId, String version) throws Exception {
-            artifactId = artifactId.contains("-omod") ? artifactId : artifactId + "-omod";
-			
-			String moduleId = artifactId.replaceAll("(-omod|-module)$", "");
-            ModuleInfo current = resolved.get(moduleId);
+            
+            List<Dependency> dependencies = new ArrayList<>();
+            String moduleId = null;
+            String actualArtifactId = artifactId;
+            
+            try {
+                // Ensure artifactId ends with -omod
+                actualArtifactId = artifactId.contains("-omod") ? artifactId : artifactId + "-omod";
+                moduleId = actualArtifactId.replaceAll("(-omod|-module)$", "");
 
-            if (current != null && compareVersions(current.version, version) >= 0) return;
+                System.out.printf("Resolving: groupId=%s, artifactId=%s, version=%s%n", groupId, actualArtifactId, version);
 
-            resolved.put(moduleId, new ModuleInfo(moduleId, groupId, version));
+                ModuleInfo current = resolved.get(moduleId);
+                if (current != null && compareVersions(current.version, version) >= 0) {
+                    System.out.printf("Already resolved %s at same or higher version (%s >= %s)%n", moduleId, current.version, version);
+                    return;
+                } else if (current == null) {
+                    // ensure it is valid version
+                    compareVersions("0", version);
+                }
 
-            File jarFile = downloadJar(groupId, artifactId, version);
-            List<Dependency> dependencies = parseDependenciesFromJar(jarFile);
+                File jarFile = downloadJar(groupId, actualArtifactId, version);
 
+                // Only add the artefact if it can be downloaded
+                resolved.put(moduleId, new ModuleInfo(moduleId, groupId, version));
+
+                dependencies = parseDependenciesFromJar(jarFile);
+            } catch(Exception e) {
+                unResolved.put(moduleId, new ModuleInfo(moduleId, groupId, version));
+                System.err.printf("Failed to resolve: groupId=%s, artifactId=%s, version=%s%n", groupId, actualArtifactId, version);
+                System.err.println("Reason: " + e.getMessage());
+                e.printStackTrace(System.err);
+                return;
+            }
             for (Dependency dep : dependencies) {
                 resolveRecursive(dep.groupId, dep.artifactId, dep.version);
             }
@@ -123,13 +154,22 @@ public class ArtifactHelperIT extends AbstractMavenIT {
         private File downloadJar(String groupId, String artifactId, String version) throws Exception {
 
 			ArtifactHelper artifactHelper = new ArtifactHelper(getMavenEnvironment());
-			Artifact artifact = new Artifact(artifactId, version, groupId, "jar");
-			artifactHelper.downloadArtifact(artifact, getMavenTestDirectory(), false);
+			try {
+                artifactHelper.downloadArtifact(new Artifact(artifactId, version, Artifact.GROUP_MODULE, "jar"), getMavenTestDirectory(), false);
+            } catch (Exception e1) {
+                try {
+                    artifactHelper.downloadArtifact(new Artifact(artifactId, version, "org.openmrs", "jar"), getMavenTestDirectory(), false);
+                } catch (Exception e2) {
+                    artifactHelper.downloadArtifact(new Artifact(artifactId, version, groupId, "jar"), getMavenTestDirectory(), false);
+                }
+            }
 			File downloadedArtifact = new File(getMavenTestDirectory(), artifactId.replace("-omod", "") + "-" + version + ".jar");
             return downloadedArtifact;
         }
 
         private List<Dependency> parseDependenciesFromJar(File jarFile) throws Exception {
+
+            System.out.println("zzzzzzzzzzzzz       : " + jarFile.getAbsolutePath());
             List<Dependency> dependencies = new ArrayList<>();
             try (JarFile jar = new JarFile(jarFile)) {
                 ZipEntry entry = jar.getEntry("config.xml");
@@ -145,11 +185,25 @@ public class ArtifactHelperIT extends AbstractMavenIT {
 					dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false); // Optional: set true if you want to block all DTDs
 					dbf.setNamespaceAware(true);
 					dbf.setValidating(false);
-
-					DocumentBuilder builder = dbf.newDocumentBuilder();
-					builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
+                    
+                    DocumentBuilder builder = dbf.newDocumentBuilder();
+                    builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
 
                     Document doc = builder.parse(in);
+
+                    // for debugging purposes
+                    // {
+                    //     Transformer transformer = TransformerFactory.newInstance().newTransformer();
+                    //     transformer.setOutputProperty(OutputKeys.INDENT, "no");
+
+                    //     DOMSource source = new DOMSource(doc.getDocumentElement());
+                    //     StringWriter writer = new StringWriter();
+                    //     StreamResult result = new StreamResult(writer);
+
+                    //     transformer.transform(source, result);
+
+                    //     System.out.println(writer.toString());
+                    // }
 					
                     NodeList requireModules = doc.getElementsByTagName("require_module");
 
@@ -160,9 +214,17 @@ public class ArtifactHelperIT extends AbstractMavenIT {
 
                         if (!uid.contains(".")) continue;
 
-                        String[] parts = uid.split("\\.");
-                        String artifactId = parts[parts.length - 1];
-                        String groupId = String.join(".", Arrays.asList(parts).subList(0, parts.length - 1));
+                        String artifactId = "";
+                        String groupId = "";
+                        if (uid.startsWith("org.openmrs.module.")) {
+                            artifactId = uid.substring("org.openmrs.module.".length());
+                            groupId = "org.openmrs.module";
+                        } else if (uid.startsWith("org.openmrs.")) {
+                            artifactId = uid.substring("org.openmrs.".length());
+                            groupId = "org.openmrs";
+                        } else {
+                            throw new IllegalArgumentException("Unsupported UID format: " + uid);
+                        }
 
                         dependencies.add(new Dependency(groupId, artifactId, version));
                     }
@@ -171,19 +233,47 @@ public class ArtifactHelperIT extends AbstractMavenIT {
             return dependencies;
         }
 
-        private int compareVersions(String a, String b) {
-            String[] x = a.split("\\.");
-            String[] y = b.split("\\.");
-            for (int i = 0; i < Math.max(x.length, y.length); i++) {
-                int ai = i < x.length ? Integer.parseInt(x[i]) : 0;
-                int bi = i < y.length ? Integer.parseInt(y[i]) : 0;
+        private int compareVersions(String v1, String v2) {
+            // Strip off "-SNAPSHOT" and remember if it was a snapshot
+            boolean isSnapshot1 = v1.endsWith("-SNAPSHOT");
+            boolean isSnapshot2 = v2.endsWith("-SNAPSHOT");
+
+            String base1 = isSnapshot1 ? v1.substring(0, v1.length() - 9) : v1;
+            String base2 = isSnapshot2 ? v2.substring(0, v2.length() - 9) : v2;
+
+            String[] a = base1.split("\\.");
+            String[] b = base2.split("\\.");
+
+            for (int i = 0; i < Math.max(a.length, b.length); i++) {
+                int ai = i < a.length ? Integer.parseInt(a[i]) : 0;
+                int bi = i < b.length ? Integer.parseInt(b[i]) : 0;
                 if (ai != bi) return Integer.compare(ai, bi);
             }
+
+            // If base versions are equal, consider SNAPSHOT < release
+            if (isSnapshot1 != isSnapshot2) {
+                return isSnapshot1 ? -1 : 1;
+            }
+
             return 0;
         }
 
         public void printResults() {
-            resolved.values().forEach(m -> System.out.printf("%-30s | %-40s | %s%n", m.moduleId, m.groupId, m.version));
+            System.out.println("\n===================== Resolved Modules =====================");
+            System.out.printf("%-30s | %-40s | %s%n", "Module ID", "Group ID", "Version");
+            System.out.println("------------------------------------------------------------" +
+                            "--------------------------------------------");
+            resolved.values().forEach(m ->
+                System.out.printf("%-30s | %-40s | %s%n", m.moduleId, m.groupId, m.version)
+            );
+
+            System.out.println("\n===================== Unresolved Modules ===================");
+            System.out.printf("%-30s | %-40s | %s%n", "Module ID", "Group ID", "Version");
+            System.out.println("------------------------------------------------------------" +
+                            "--------------------------------------------");
+            unResolved.values().forEach(m ->
+                System.out.printf("%-30s | %-40s | %s%n", m.moduleId, m.groupId, m.version)
+            );
         }
 
         private class Dependency {
