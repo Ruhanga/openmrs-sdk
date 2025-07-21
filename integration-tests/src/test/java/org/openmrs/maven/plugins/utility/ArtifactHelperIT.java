@@ -85,29 +85,34 @@ public class ArtifactHelperIT extends AbstractMavenIT {
 
 	public class OpenmrsModuleResolver {
 
-        public class ModuleInfo {
-            String moduleId;
-            String groupId;
-            String version;
+        // public class ModuleInfo {
+        //     String moduleId;
+        //     String groupId;
+        //     String version;
 
-            ModuleInfo(String moduleId, String groupId, String version) {
-                this.moduleId = moduleId;
-                this.groupId = groupId;
-                this.version = version;
-            }
+        //     ModuleInfo(String moduleId, String groupId, String version) {
+        //         this.moduleId = moduleId;
+        //         this.groupId = groupId;
+        //         this.version = version;
+        //     }
 
-            @Override
-            public String toString() {
-                return moduleId + " | " + groupId + " | " + version;
-            }
-        }
+        //     @Override
+        //     public String toString() {
+        //         return moduleId + " | " + groupId + " | " + version;
+        //     }
+        // }
 
-        private final Map<String, ModuleInfo> resolved = new HashMap<>();
+        private final Map<String, Artifact> resolved = new HashMap<>();
 
-        private final Map<String, ModuleInfo> unResolved = new HashMap<>();
+        private final Map<String, Artifact> unResolved = new HashMap<>();
+
+        private final List<String> groupIds = Arrays.asList(Artifact.GROUP_MODULE, "org.openmrs");
+
+        private final List<String> extensions = Arrays.asList("jar", "omod");
 
         public void resolve(String groupId, String artifactId, String version) throws Exception {
             resolveRecursive(groupId, artifactId, version);
+            resolved.keySet().forEach(unResolved::remove);
             
         }
 
@@ -124,23 +129,23 @@ public class ArtifactHelperIT extends AbstractMavenIT {
 
                 System.out.printf("Resolving: groupId=%s, artifactId=%s, version=%s%n", groupId, actualArtifactId, version);
 
-                ModuleInfo current = resolved.get(moduleId);
-                if (current != null && compareVersions(current.version, version) >= 0) {
-                    System.out.printf("Already resolved %s at same or higher version (%s >= %s)%n", moduleId, current.version, version);
+                Artifact current = resolved.get(moduleId);
+                if (current != null && compareVersions(current.getVersion(), version) >= 0) {
+                    System.out.printf("Already resolved %s at same or higher version (%s >= %s)%n", moduleId, current.getVersion(), version);
                     return;
                 } else if (current == null) {
-                    // ensure it is valid version
+                    // ensure it is valid version by it being greater than 0
                     compareVersions("0", version);
                 }
 
                 File jarFile = downloadJar(groupId, actualArtifactId, version);
 
                 // Only add the artefact if it can be downloaded
-                resolved.put(moduleId, new ModuleInfo(moduleId, groupId, version));
+                resolved.put(moduleId, new Artifact(moduleId, version, groupId));
 
                 dependencies = parseDependenciesFromJar(jarFile);
             } catch(Exception e) {
-                unResolved.put(moduleId, new ModuleInfo(moduleId, groupId, version));
+                unResolved.put(moduleId, new Artifact(moduleId, version, groupId));
                 System.err.printf("Failed to resolve: groupId=%s, artifactId=%s, version=%s%n", groupId, actualArtifactId, version);
                 System.err.println("Reason: " + e.getMessage());
                 e.printStackTrace(System.err);
@@ -154,14 +159,26 @@ public class ArtifactHelperIT extends AbstractMavenIT {
         private File downloadJar(String groupId, String artifactId, String version) throws Exception {
 
 			ArtifactHelper artifactHelper = new ArtifactHelper(getMavenEnvironment());
-			try {
-                artifactHelper.downloadArtifact(new Artifact(artifactId, version, Artifact.GROUP_MODULE, "jar"), getMavenTestDirectory(), false);
-            } catch (Exception e1) {
-                try {
-                    artifactHelper.downloadArtifact(new Artifact(artifactId, version, "org.openmrs", "jar"), getMavenTestDirectory(), false);
-                } catch (Exception e2) {
-                    artifactHelper.downloadArtifact(new Artifact(artifactId, version, groupId, "jar"), getMavenTestDirectory(), false);
+			boolean downloaded = false;
+            for (String gId : groupIds) {
+                for (String ext : extensions) {
+                    try {
+                        artifactHelper.downloadArtifact(
+                            new Artifact(artifactId, version, gId, ext),
+                            getMavenTestDirectory(),
+                            false
+                        );
+                        downloaded = true;
+                        break; // success, stop trying
+                    } catch (Exception ignored) {
+                        // keep trying next combination
+                    }
                 }
+                if (downloaded) break;
+            }
+
+            if (!downloaded) {
+                throw new RuntimeException("Failed to download artifact: " + groupId + ":" + artifactId + ":" + version);
             }
 			File downloadedArtifact = new File(getMavenTestDirectory(), artifactId.replace("-omod", "") + "-" + version + ".jar");
             return downloadedArtifact;
@@ -264,7 +281,7 @@ public class ArtifactHelperIT extends AbstractMavenIT {
             System.out.println("------------------------------------------------------------" +
                             "--------------------------------------------");
             resolved.values().forEach(m ->
-                System.out.printf("%-30s | %-40s | %s%n", m.moduleId, m.groupId, m.version)
+                System.out.printf("%-30s | %-40s | %s%n", m.getArtifactId(), m.getGroupId(), m.getVersion())
             );
 
             System.out.println("\n===================== Unresolved Modules ===================");
@@ -272,7 +289,7 @@ public class ArtifactHelperIT extends AbstractMavenIT {
             System.out.println("------------------------------------------------------------" +
                             "--------------------------------------------");
             unResolved.values().forEach(m ->
-                System.out.printf("%-30s | %-40s | %s%n", m.moduleId, m.groupId, m.version)
+                System.out.printf("%-30s | %-40s | %s%n", m.getArtifactId(), m.getGroupId(), m.getVersion())
             );
         }
 
