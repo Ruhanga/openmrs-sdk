@@ -9,6 +9,7 @@ import org.openmrs.maven.plugins.model.Version;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 
@@ -201,5 +202,12 @@ public class DistributionBuilder {
 
 		distribution.setEffectiveProperties(new DistroProperties(effectiveProperties));
 		return distribution;
+	}
+
+	protected Distribution buildFromModule(Artifact module) throws MojoExecutionException {
+		Distribution distribution = new Distribution();
+		ModuleBasedDistroHelper moduleBasedDistroHelper = new ModuleBasedDistroHelper(mavenEnvironment);
+		Properties properties = moduleBasedDistroHelper.generateDitributionPropertiesFromModule(module);
+		return populateDistributionFromProperties(distribution, properties);
 	}
 }
