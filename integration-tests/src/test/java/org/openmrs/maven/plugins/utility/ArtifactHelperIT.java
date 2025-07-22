@@ -41,7 +41,6 @@ public class ArtifactHelperIT extends AbstractMavenIT {
 
 	@Test
 	public void downloadArtifact_shouldFailIfNoArtifactIsFound() throws Exception {
-		
 		executeTest(() -> {
 			ArtifactHelper artifactHelper = new ArtifactHelper(getMavenEnvironment());
 			Artifact artifact = new Artifact("idgen-omod", "4.0.0", "org.openmrs.module", "jar");
