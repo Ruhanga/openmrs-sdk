@@ -148,7 +148,7 @@ public class BuildDistro extends AbstractTask {
 				wizard.showMessage("Building distribution from the distro file at " + distroFile + "...\n");
 				distribution = builder.buildFromFile(distroFile);
 			}
-			else if (Project.hasProject(userDir) && new File(userDir, MODULE_CONFIG_URI).exists()) {
+			else if (Project.hasProject(userDir) && new File(userDir, MODULE_CONFIG_URI).exists() || StringUtils.isNotBlank(additionalModules)) {
 				Project project = Project.loadProject(userDir);
 				String artifactId = project.getArtifactId();
 				String groupId = project.getGroupId();
@@ -160,8 +160,8 @@ public class BuildDistro extends AbstractTask {
 										.collect(Collectors.toList());
 				if ((artifactId != null) && (groupId != null) && version != null) {
 					modules.add(new Artifact(artifactId, version, groupId));
-					distribution = builder.buildFromModuleArtifacts(modules.toArray(new Artifact[0]));
 				}
+				distribution = builder.buildFromModuleArtifacts(modules.toArray(new Artifact[0]));
 			}
 			else if (Project.hasProject(userDir)) {
 				wizard.showMessage("Building distribution from the source at " + userDir + "...\n");
