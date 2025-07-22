@@ -168,20 +168,6 @@ public class ModuleBasedDistroHelper {
                 builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
 
                 Document doc = builder.parse(in);
-
-                // for debugging purposes
-                // {
-                //     Transformer transformer = TransformerFactory.newInstance().newTransformer();
-                //     transformer.setOutputProperty(OutputKeys.INDENT, "no");
-
-                //     DOMSource source = new DOMSource(doc.getDocumentElement());
-                //     StringWriter writer = new StringWriter();
-                //     StreamResult result = new StreamResult(writer);
-
-                //     transformer.transform(source, result);
-
-                //     System.out.println(writer.toString());
-                // }
                 
                 NodeList requiredModules = doc.getElementsByTagName("require_module");
 
