@@ -157,7 +157,7 @@ public class BuildDistro extends AbstractTask {
 			String groupId = project.getGroupId();
 			String version = project.getVersion();
 			if ((artifactId != null) && (groupId != null) && version != null) {
-				distribution = builder.buildFromArtifact(new Artifact(artifactId, version, groupId));
+				distribution = builder.buildFromModuleArtifact(new Artifact(artifactId, version, groupId));
 			}
 		}
 
