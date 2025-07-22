@@ -130,7 +130,7 @@ public class BuildDistro extends AbstractTask {
 	 * form groupId:artifactId:version or artifactId:version if the
 	 * groupId is either org.openmrs.module or org.openmrs
 	 */
-	@Parameter(defaultValue = "org.openmrs.module:legacyui-omod:1.23.0", property = "additionalModules")
+	@Parameter(defaultValue = "org.openmrs.module:legacyui-omod:1.16.0", property = "additionalModules")
 	private String additionalModules;
 
 	@Override
@@ -149,17 +149,13 @@ public class BuildDistro extends AbstractTask {
 				distribution = builder.buildFromFile(distroFile);
 			}
 			else if (Project.hasProject(userDir) && new File(userDir, MODULE_CONFIG_URI).exists() || StringUtils.isNotBlank(additionalModules)) {
-				Project project = Project.loadProject(userDir);
-				String artifactId = project.getArtifactId();
-				String groupId = project.getGroupId();
-				String version = project.getVersion();
 				List<Artifact> modules = Arrays.stream(additionalModules.split(","))
 										.map(String::trim)
 										.filter(s -> !s.isEmpty())
 										.map(this::parseArtifact)
 										.collect(Collectors.toList());
-				if ((artifactId != null) && (groupId != null) && version != null) {
-					modules.add(new Artifact(artifactId, version, groupId));
+				if (Project.hasProject(userDir);) {
+					modules.add(new Artifact(project.getArtifactId(), project.getGroupId(), project.getVersion()));
 				}
 				distribution = builder.buildFromModuleArtifacts(modules.toArray(new Artifact[0]));
 			}
