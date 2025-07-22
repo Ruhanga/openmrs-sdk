@@ -153,8 +153,14 @@ public class BuildDistro extends AbstractTask {
 				String artifactId = project.getArtifactId();
 				String groupId = project.getGroupId();
 				String version = project.getVersion();
+				List<Artifact> modules = Arrays.stream(additionalModules.split(","))
+										.map(String::trim)
+										.filter(s -> !s.isEmpty())
+										.map(this::parseArtifact)
+										.collect(Collectors.toList());
 				if ((artifactId != null) && (groupId != null) && version != null) {
-					distribution = builder.buildFromModuleArtifacts(new Artifact(artifactId, version, groupId));
+					modules.add(new Artifact(artifactId, version, groupId));
+					distribution = builder.buildFromModuleArtifacts(modules.toArray(new Artifact[0]));
 				}
 			}
 			else if (Project.hasProject(userDir)) {
