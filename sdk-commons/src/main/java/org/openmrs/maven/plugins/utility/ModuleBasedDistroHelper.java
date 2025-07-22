@@ -46,15 +46,17 @@ public class ModuleBasedDistroHelper {
         tempWorkingDir.mkdirs();
     }
 
-    public Properties generateDitributionPropertiesFromModule(Artifact module) {
+    public Properties generateDitributionPropertiesFromModules(Artifact ...modules) {
         Properties properties = new Properties();
-        properties.put("name", module.getArtifactId() + " based distro");
+        properties.put("name", "Module based distro");
         properties.put("version", "100.0.0-SNAPSHOT");
         properties.put("war.openmrs", "2.7.4");
         properties.put("war.openmrs.groupId", "org.openmrs.web");
         properties.put("db.h2.supported", "false");
 
-        resolve(module.getGroupId(), module.getArtifactId(), module.getVersion());     
+        for (Artifact module : modules) {
+            resolve(module.getGroupId(), module.getArtifactId(), module.getVersion());     
+        }
         for (Artifact artifact : resolved.values()) {
             String keyBase = "omod." + artifact.getArtifactId().replace("-omod", "");
             properties.setProperty(keyBase, artifact.getVersion());
@@ -69,13 +71,13 @@ public class ModuleBasedDistroHelper {
                 properties.setProperty(keyBase + ".type", artifact.getType());
             }
         }
+        printResults();
         return properties;
     }
     
     public void resolve(String groupId, String artifactId, String version) {
         resolveRecursive(groupId, artifactId, version);
         resolved.keySet().forEach(unResolved::remove);
-        printResults();
         FileUtils.deleteQuietly(tempWorkingDir);
     }
 
@@ -228,21 +230,24 @@ public class ModuleBasedDistroHelper {
     }
 
     public void printResults() {
-        log.info("");
-        log.info("=================================== Resolved Modules ===================================");
-        log.info(String.format("%-30s | %-25s | %s", "Module ID", "Group ID", "Version"));
-        log.info("----------------------------------------------------------------------------------------");
-
-        resolved.values().forEach(m ->
-            log.info(String.format("%-30s | %-25s | %s", m.getArtifactId().replaceAll("(-omod)$", ""), m.getGroupId(), m.getVersion()))
-        );
-        log.info("");
-        log.info("=================================== Unresolved Modules =================================");
-        log.info(String.format("%-30s | %-25s | %s", "Module ID", "Group ID", "Version"));
-        log.info("----------------------------------------------------------------------------------------");
-        unResolved.values().forEach(m ->
-            log.info(String.format("%-30s | %-25s | %s", m.getArtifactId().replaceAll("(-omod)$", ""), m.getGroupId(), m.getVersion()))
-        );
+        if (resolved.size() != 0) {
+            log.info("");
+            log.info("=================================== Resolved Modules ===================================");
+            log.info(String.format("%-30s | %-25s | %s", "Module ID", "Group ID", "Version"));
+            log.info("----------------------------------------------------------------------------------------");
+            resolved.values().forEach(m ->
+                log.info(String.format("%-30s | %-25s | %s", m.getArtifactId().replaceAll("(-omod)$", ""), m.getGroupId(), m.getVersion()))
+            );
+        }
+        if (unResolved.size() != 0) {
+            log.info("");
+            log.info("=================================== Unresolved Modules =================================");
+            log.info(String.format("%-30s | %-25s | %s", "Module ID", "Group ID", "Version"));
+            log.info("----------------------------------------------------------------------------------------");
+            unResolved.values().forEach(m ->
+                log.info(String.format("%-30s | %-25s | %s", m.getArtifactId().replaceAll("(-omod)$", ""), m.getGroupId(), m.getVersion()))
+            );
+        }
         log.info("");
     }
 }

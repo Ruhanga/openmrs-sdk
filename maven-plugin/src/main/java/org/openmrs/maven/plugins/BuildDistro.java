@@ -32,7 +32,9 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.openmrs.maven.plugins.utility.SDKConstants.REFAPP_2X_PROMPT;
 import static org.openmrs.maven.plugins.utility.SDKConstants.REFAPP_3X_PROMPT;
@@ -123,6 +125,14 @@ public class BuildDistro extends AbstractTask {
 	@Parameter(property = "appShellVersion")
 	private String appShellVersion;
 
+	/**
+	 * Comma seperated string of additional modules artefacts in the
+	 * form groupId:artifactId:version or artifactId:version if the
+	 * groupId is either org.openmrs.module or org.openmrs
+	 */
+	@Parameter(defaultValue = "org.openmrs.module:legacyui-omod:1.23.0", property = "additionalModules")
+	private String additionalModules;
+
 	@Override
 	public void executeTask() throws MojoExecutionException, MojoFailureException {
 		File buildDirectory = getBuildDirectory();
@@ -131,16 +141,6 @@ public class BuildDistro extends AbstractTask {
 
 		DistributionBuilder builder = new DistributionBuilder(getMavenEnvironment());
 		Distribution distribution = null;
-
-		if (Project.hasProject(userDir) && new File(userDir, MODULE_CONFIG_URI).exists()) {
-			Project project = Project.loadProject(userDir);
-			String artifactId = project.getArtifactId();
-			String groupId = project.getGroupId();
-			String version = project.getVersion();
-			if ((artifactId != null) && (groupId != null) && version != null) {
-				distribution = builder.buildFromModuleArtifact(new Artifact(artifactId, version, groupId));
-			}
-		}
 
 		if (distro == null) {
 			File distroFile = new File(userDir, DistroProperties.DISTRO_FILE_NAME);
@@ -154,7 +154,7 @@ public class BuildDistro extends AbstractTask {
 				String groupId = project.getGroupId();
 				String version = project.getVersion();
 				if ((artifactId != null) && (groupId != null) && version != null) {
-					distribution = builder.buildFromModuleArtifact(new Artifact(artifactId, version, groupId));
+					distribution = builder.buildFromModuleArtifacts(new Artifact(artifactId, version, groupId));
 				}
 			}
 			else if (Project.hasProject(userDir)) {
@@ -571,4 +571,23 @@ public class BuildDistro extends AbstractTask {
 			}
 		}
 	}
+
+	private Artifact parseArtifact(String spec) {
+        String[] parts = spec.split(":");
+        String groupId, artifactId, version;
+
+        if (parts.length == 3) {
+            groupId = parts[0];
+            artifactId = parts[1];
+            version = parts[2];
+        } else if (parts.length == 2) {
+            groupId = Artifact.GROUP_MODULE;
+            artifactId = parts[0];
+            version = parts[1];
+        } else {
+            throw new IllegalArgumentException("Invalid artifact format: " + spec);
+        }
+
+        return new Artifact(artifactId, version, groupId);
+    }
 }

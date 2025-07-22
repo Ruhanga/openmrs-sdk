@@ -204,10 +204,10 @@ public class DistributionBuilder {
 		return distribution;
 	}
 
-	public Distribution buildFromModuleArtifact(Artifact module) throws MojoExecutionException {
+	public Distribution buildFromModuleArtifacts(Artifact ...modules) throws MojoExecutionException {
 		Distribution distribution = new Distribution();
 		ModuleBasedDistroHelper moduleBasedDistroHelper = new ModuleBasedDistroHelper(mavenEnvironment);
-		Properties properties = moduleBasedDistroHelper.generateDitributionPropertiesFromModule(module);
+		Properties properties = moduleBasedDistroHelper.generateDitributionPropertiesFromModules(modules);
 		distribution.setEffectiveProperties(new DistroProperties(properties));
 		return distribution;
 	}
