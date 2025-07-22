@@ -85,23 +85,6 @@ public class ArtifactHelperIT extends AbstractMavenIT {
 
 	public class OpenmrsModuleResolver {
 
-        // public class ModuleInfo {
-        //     String moduleId;
-        //     String groupId;
-        //     String version;
-
-        //     ModuleInfo(String moduleId, String groupId, String version) {
-        //         this.moduleId = moduleId;
-        //         this.groupId = groupId;
-        //         this.version = version;
-        //     }
-
-        //     @Override
-        //     public String toString() {
-        //         return moduleId + " | " + groupId + " | " + version;
-        //     }
-        // }
-
         private final Map<String, Artifact> resolved = new HashMap<>();
 
         private final Map<String, Artifact> unResolved = new HashMap<>();
@@ -181,6 +164,9 @@ public class ArtifactHelperIT extends AbstractMavenIT {
                 throw new RuntimeException("Failed to download artifact: " + groupId + ":" + artifactId + ":" + version);
             }
 			File downloadedArtifact = new File(getMavenTestDirectory(), artifactId.replace("-omod", "") + "-" + version + ".jar");
+            if (!downloadedArtifact.exists()) {
+                downloadedArtifact = new File(getMavenTestDirectory(), artifactId.replace("-omod", "") + "-" + version + ".omod");
+            }
             return downloadedArtifact;
         }
 
