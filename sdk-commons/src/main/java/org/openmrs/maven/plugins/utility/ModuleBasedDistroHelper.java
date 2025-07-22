@@ -56,7 +56,7 @@ public class ModuleBasedDistroHelper {
 
         resolve(module.getGroupId(), module.getArtifactId(), module.getVersion());     
         for (Artifact artifact : resolved.values()) {
-            String keyBase = "omod." + artifact.getArtifactId();
+            String keyBase = "omod." + artifact.getArtifactId().replace("-omod", "");
             properties.setProperty(keyBase, artifact.getVersion());
 
             // Only include groupId if not the default
@@ -148,8 +148,6 @@ public class ModuleBasedDistroHelper {
     }
 
     private List<Artifact> parseDependenciesFromJar(File jarFile) throws Exception {
-
-        System.out.println("zzzzzzzzzzzzz       : " + jarFile.getAbsolutePath());
         List<Artifact> dependencies = new ArrayList<>();
         try (JarFile jar = new JarFile(jarFile)) {
             ZipEntry entry = jar.getEntry("config.xml");

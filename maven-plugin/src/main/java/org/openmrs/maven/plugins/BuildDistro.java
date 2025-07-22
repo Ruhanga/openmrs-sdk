@@ -132,11 +132,30 @@ public class BuildDistro extends AbstractTask {
 		DistributionBuilder builder = new DistributionBuilder(getMavenEnvironment());
 		Distribution distribution = null;
 
+		if (Project.hasProject(userDir) && new File(userDir, MODULE_CONFIG_URI).exists()) {
+			Project project = Project.loadProject(userDir);
+			String artifactId = project.getArtifactId();
+			String groupId = project.getGroupId();
+			String version = project.getVersion();
+			if ((artifactId != null) && (groupId != null) && version != null) {
+				distribution = builder.buildFromModuleArtifact(new Artifact(artifactId, version, groupId));
+			}
+		}
+
 		if (distro == null) {
 			File distroFile = new File(userDir, DistroProperties.DISTRO_FILE_NAME);
 			if (distroFile.exists()) {
 				wizard.showMessage("Building distribution from the distro file at " + distroFile + "...\n");
 				distribution = builder.buildFromFile(distroFile);
+			}
+			else if (Project.hasProject(userDir) && new File(userDir, MODULE_CONFIG_URI).exists()) {
+				Project project = Project.loadProject(userDir);
+				String artifactId = project.getArtifactId();
+				String groupId = project.getGroupId();
+				String version = project.getVersion();
+				if ((artifactId != null) && (groupId != null) && version != null) {
+					distribution = builder.buildFromModuleArtifact(new Artifact(artifactId, version, groupId));
+				}
 			}
 			else if (Project.hasProject(userDir)) {
 				wizard.showMessage("Building distribution from the source at " + userDir + "...\n");
@@ -149,16 +168,6 @@ public class BuildDistro extends AbstractTask {
 		}
 		else if (StringUtils.isNotBlank(distro)) {
 			distribution = distroHelper.resolveDistributionForStringSpecifier(distro, versionsHelper);
-		}
-
-		if (Project.hasProject(userDir) && new File(userDir, MODULE_CONFIG_URI).exists()) {
-			Project project = Project.loadProject(userDir);
-			String artifactId = project.getArtifactId();
-			String groupId = project.getGroupId();
-			String version = project.getVersion();
-			if ((artifactId != null) && (groupId != null) && version != null) {
-				distribution = builder.buildFromModuleArtifact(new Artifact(artifactId, version, groupId));
-			}
 		}
 
 		if (distribution == null) {

@@ -43,10 +43,6 @@ public class ArtifactHelperIT extends AbstractMavenIT {
 	public void downloadArtifact_shouldFailIfNoArtifactIsFound() throws Exception {
 		
 		executeTest(() -> {
-
-			DistributionBuilder builder = new DistributionBuilder(getMavenEnvironment());
-			builder.buildFromModuleArtifact(new Artifact("coreapps-omod", "2.1.0", "org.openmrs.module"));
-
 			ArtifactHelper artifactHelper = new ArtifactHelper(getMavenEnvironment());
 			Artifact artifact = new Artifact("idgen-omod", "4.0.0", "org.openmrs.module", "jar");
 			artifactHelper.downloadArtifact(artifact, getMavenTestDirectory(), false);

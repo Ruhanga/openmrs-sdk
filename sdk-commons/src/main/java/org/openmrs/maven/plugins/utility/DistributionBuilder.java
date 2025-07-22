@@ -208,6 +208,7 @@ public class DistributionBuilder {
 		Distribution distribution = new Distribution();
 		ModuleBasedDistroHelper moduleBasedDistroHelper = new ModuleBasedDistroHelper(mavenEnvironment);
 		Properties properties = moduleBasedDistroHelper.generateDitributionPropertiesFromModule(module);
-		return populateDistributionFromProperties(distribution, properties);
+		distribution.setEffectiveProperties(new DistroProperties(properties));
+		return distribution;
 	}
 }
