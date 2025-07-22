@@ -3,10 +3,13 @@ package org.openmrs.maven.plugins.utility;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.apache.maven.it.VerificationException;
 import org.junit.Test;
 import org.openmrs.maven.plugins.AbstractMavenIT;
 import org.openmrs.maven.plugins.model.Artifact;
+
 import java.io.File;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -39,7 +42,7 @@ public class ArtifactHelperIT extends AbstractMavenIT {
 		});
 	}
 
-	@Test
+	@Test(expected = VerificationException.class)
 	public void downloadArtifact_shouldFailIfNoArtifactIsFound() throws Exception {
 		executeTest(() -> {
 			ArtifactHelper artifactHelper = new ArtifactHelper(getMavenEnvironment());
