@@ -204,7 +204,7 @@ public class DistributionBuilder {
 		return distribution;
 	}
 
-	protected Distribution buildFromModule(Artifact module) throws MojoExecutionException {
+	public Distribution buildFromModuleArtifact(Artifact module) throws MojoExecutionException {
 		Distribution distribution = new Distribution();
 		ModuleBasedDistroHelper moduleBasedDistroHelper = new ModuleBasedDistroHelper(mavenEnvironment);
 		Properties properties = moduleBasedDistroHelper.generateDitributionPropertiesFromModule(module);

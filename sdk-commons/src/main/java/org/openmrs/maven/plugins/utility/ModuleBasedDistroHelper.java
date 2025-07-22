@@ -54,6 +54,7 @@ public class ModuleBasedDistroHelper {
         properties.put("war.openmrs.groupId", "org.openmrs.web");
         properties.put("db.h2.supported", "false");
 
+        resolve(module.getGroupId(), module.getArtifactId(), module.getVersion());     
         for (Artifact artifact : resolved.values()) {
             String keyBase = "omod." + artifact.getArtifactId();
             properties.setProperty(keyBase, artifact.getVersion());
@@ -71,14 +72,14 @@ public class ModuleBasedDistroHelper {
         return properties;
     }
     
-    public void resolve(String groupId, String artifactId, String version) throws Exception {
+    public void resolve(String groupId, String artifactId, String version) {
         resolveRecursive(groupId, artifactId, version);
         resolved.keySet().forEach(unResolved::remove);
         printResults();
         FileUtils.deleteQuietly(tempWorkingDir);
     }
 
-    private void resolveRecursive(String groupId, String artifactId, String version) throws Exception {
+    private void resolveRecursive(String groupId, String artifactId, String version) {
         
         List<Artifact> dependencies = new ArrayList<>();
         
