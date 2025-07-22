@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
-
+import org.apache.commons.io.FileUtils;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
@@ -104,14 +104,19 @@ public class ArtifactHelperIT extends AbstractMavenIT {
 
         private final MavenEnvironment mavenEnvironment;
 
+        private final File tempWorkingDir;
+
         public OpenmrsModuleResolver(MavenEnvironment mavenEnvironment) {
             this.mavenEnvironment = mavenEnvironment;
+            this.tempWorkingDir = new File(mavenEnvironment.getMavenProject().getBuild().getDirectory(), "moduleBasedArtifats");
+            tempWorkingDir.mkdirs();
+
         }
         
         public void resolve(String groupId, String artifactId, String version) throws Exception {
             resolveRecursive(groupId, artifactId, version);
             resolved.keySet().forEach(unResolved::remove);
-            
+            FileUtils.deleteQuietly(tempWorkingDir);
         }
 
         private void resolveRecursive(String groupId, String artifactId, String version) throws Exception {
@@ -149,24 +154,12 @@ public class ArtifactHelperIT extends AbstractMavenIT {
                 return;
             }
             for (Artifact dep : dependencies) {
-                if (Artifact.TYPE_WAR.equalsIgnoreCase(dep.getType())) {
-                    Artifact currentWar = resolved.get(dep.getArtifactId());
-                    if (currentWar != null && compareVersions(currentWar.getVersion(), version) >= 0) {
-                        log.info("Already resolved {} at same or higher version ({} >= {})", currentWar.getArtifactId(), currentWar.getVersion(), currentWar.getVersion());
-                        return;
-                    } else if (currentWar == null) {
-                        // ensure it is valid version by it being greater than 0
-                        compareVersions("0", version);
-                        resolved.put(dep.getArtifactId(), new Artifact(dep.getArtifactId(), dep.getVersion(), dep.getGroupId()));
-                    }
-                    continue;
-                }
                 resolveRecursive(dep.getGroupId(), dep.getArtifactId(), dep.getVersion());
             }
         }
 
         private File downloadJar(String groupId, String artifactId, String version) throws Exception {
-
+            
 			ArtifactHelper artifactHelper = new ArtifactHelper(mavenEnvironment);
 			boolean downloaded = false;
             for (String gId : groupIds) {
@@ -174,7 +167,7 @@ public class ArtifactHelperIT extends AbstractMavenIT {
                     try {
                         artifactHelper.downloadArtifact(
                             new Artifact(artifactId, version, gId, ext),
-                            getMavenTestDirectory(),
+                            new File(mavenEnvironment.getMavenProject().getBuild().getDirectory()),
                             false
                         );
                         downloaded = true;
@@ -191,7 +184,7 @@ public class ArtifactHelperIT extends AbstractMavenIT {
             }
 
             for (String ext : types) {
-                File downloadedArtifact = new File(getMavenTestDirectory(), artifactId.replace("-omod", "") + "-" + version + "." + ext);
+                File downloadedArtifact = new File(tempWorkingDir, artifactId.replace("-omod", "") + "-" + version + "." + ext);
                 if (downloadedArtifact.exists()) {
                     return downloadedArtifact;
                 }
@@ -259,24 +252,6 @@ public class ArtifactHelperIT extends AbstractMavenIT {
                         }
                         dependencies.add(new Artifact(artifactId, version, groupId));
                     }
-                    NodeList requiredPlatform = doc.getElementsByTagName("require_version");
-                    if (requiredPlatform != null) {
-                        String platformVersion = ((Element) requiredPlatform.item(0)).getTextContent().trim();
-                        System.out.println("qqqqqqqqqqqqqqqqqqq.       :    " + platformVersion);
-                        if (!"".equals(platformVersion)) {
-                            List<String> filteredVersons = Arrays.stream(platformVersion.split(","))
-                                                    .map(String::trim)
-                                                    .filter(s -> !s.contains("*")) // exclude wildcards
-                                                    .filter(s -> 
-                                                        !s.contains("-") || 
-                                                        s.matches("\\d+(\\.\\d+)*-(SNAPSHOT|alpha|beta)"))
-                                                    .collect(Collectors.toList());
-                            System.out.println("ssssssssssssssssssss.       :    " + filteredVersons);
-
-                            platformVersion = filteredVersons.stream().max((a, b) -> compareVersions(a, b)).orElse(null);
-                            dependencies.add(new Artifact("openmrs-webapp", platformVersion, Artifact.GROUP_WEB, Artifact.TYPE_WAR));
-                        }
-                    }
                 }
             }
             return dependencies;
@@ -330,18 +305,6 @@ public class ArtifactHelperIT extends AbstractMavenIT {
                 log.info(String.format("%-30s | %-25s | %s", m.getArtifactId(), m.getGroupId(), m.getVersion()))
             );
             log.info("");
-        }
-
-        private class Dependency {
-            String groupId;
-            String artifactId;
-            String version;
-
-            Dependency(String groupId, String artifactId, String version) {
-                this.groupId = groupId;
-                this.artifactId = artifactId;
-                this.version = version;
-            }
         }
     }
 }
