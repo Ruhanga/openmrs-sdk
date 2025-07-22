@@ -45,7 +45,7 @@ public class ArtifactHelperIT extends AbstractMavenIT {
 		executeTest(() -> {
 
 			DistributionBuilder builder = new DistributionBuilder(getMavenEnvironment());
-			builder.buildFromArtifact(new Artifact("coreapps-omod", "2.1.0", "org.openmrs.module"));
+			builder.buildFromModule(new Artifact("coreapps-omod", "2.1.0", "org.openmrs.module"));
 
 			ArtifactHelper artifactHelper = new ArtifactHelper(getMavenEnvironment());
 			Artifact artifact = new Artifact("idgen-omod", "4.0.0", "org.openmrs.module", "jar");
