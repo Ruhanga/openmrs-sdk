@@ -73,6 +73,8 @@ public class BuildDistro extends AbstractTask {
 
 	private static final String DOCKER_COMPOSE_OVERRIDE_YML = "docker-compose.override.yml";
 
+	private static final String MODULE_CONFIG_URI = "omod/src/main/resources/config.xml";
+
 	private static final Logger log = LoggerFactory.getLogger(BuildDistro.class);
 
 	/**
@@ -147,6 +149,16 @@ public class BuildDistro extends AbstractTask {
 		}
 		else if (StringUtils.isNotBlank(distro)) {
 			distribution = distroHelper.resolveDistributionForStringSpecifier(distro, versionsHelper);
+		}
+
+		if (Project.hasProject(userDir) && new File(userDir, MODULE_CONFIG_URI).exists()) {
+			Project project = Project.loadProject(userDir);
+			String artifactId = project.getArtifactId();
+			String groupId = project.getGroupId();
+			String version = project.getVersion();
+			if ((artifactId != null) && (groupId != null) && version != null) {
+
+			}
 		}
 
 		if (distribution == null) {
