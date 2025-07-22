@@ -163,11 +163,14 @@ public class ArtifactHelperIT extends AbstractMavenIT {
             if (!downloaded) {
                 throw new RuntimeException("Failed to download artifact: " + groupId + ":" + artifactId + ":" + version);
             }
-			File downloadedArtifact = new File(getMavenTestDirectory(), artifactId.replace("-omod", "") + "-" + version + ".jar");
-            if (!downloadedArtifact.exists()) {
-                downloadedArtifact = new File(getMavenTestDirectory(), artifactId.replace("-omod", "") + "-" + version + ".omod");
+
+            for (String ext : extensions) {
+                File downloadedArtifact = new File(getMavenTestDirectory(), artifactId.replace("-omod", "") + "-" + version + "." + ext);
+                if (downloadedArtifact.exists()) {
+                    return downloadedArtifact;
+                }
             }
-            return downloadedArtifact;
+            throw new RuntimeException("Could not determine file extension for artifact: " + groupId + ":" + artifactId + ":" + version);
         }
 
         private List<Dependency> parseDependenciesFromJar(File jarFile) throws Exception {
